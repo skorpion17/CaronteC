@@ -48,26 +48,22 @@ void __print_addr(const struct sockaddr *addr) {
 
 /**
  * Risoluzione dell'host.
- * FIXME: TODO da mandare al proxy per la risoluzione del DNS attraverso Tor.
  *
  * @Deprecated
  */
 struct hostent *gethostbyname(const char *name) {
 	printf("\t>>> Wrapped gethostbyname <<< \n");
+	printf("\t>>> gethostbyname hostname:%s <<< \n", name);
 	real_gethostbyname = dlsym(RTLD_NEXT, REAL_GETHOSTBYNAME_NAME);
 	return real_gethostbyname(name);
 }
 
 /**
  *  Risoluzione dell'host.
- *  FIXME: TODO da mandare al proxy per la risoluzione del DNS attraverso Tor.
  */
 int getaddrinfo(const char *hostname, const char *service,
 		const struct addrinfo *hints, struct addrinfo **res) {
 	printf("\t>>> Wrapped getaddrinfo <<< \n");
-	/*
-	 * Si rigirano tutte le richieste
-	 */
 	printf("\t>>> getaddrinfo hostname:%s, service:%s <<< \n", hostname,
 			service);
 	real_getaddrinfo = dlsym(RTLD_NEXT, REAL_GETADDRINFO_NAME);
