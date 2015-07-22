@@ -19,6 +19,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <netdb.h>
+#include <regex.h>
 
 #include <arpa/inet.h>
 #include <sys/types.h>
@@ -38,11 +39,19 @@
 
 #define FALSE 0
 #define TRUE  1
+
+#define DNS_PORT (uint16_t) 53
 /*
  * Proxy settings
  * TODO: Queste impostazioni devono essere lette da qualche file di configurazione,
  * in modo tale da rederle dinamiche.
  */
+#define PROXY_TORDNS_ADDR ((in_addr_t) 0x7f000101) //127.0.1.1
+#define PROXY_TORDNS_ADDR_NETWORK_BYTE_ORDER htonl(PROXY_TORDNS_ADDR)
+#define PROXY_TORDNS_PORT ((uint16_t) 5553)
+#define PROXY_TORDNS_PORT_NETWORK_BYTE_ORDER htons(PROXY_TORDNS_PORT)
+
+
 #define PROXY_ADDR_NETWORK_BYTE_ORDER htonl(INADDR_ANY)
 #define PROXY_PORT ((uint16_t) 4567)
 #define PROXY_PORT_NETWORK_BYTE_ORDER htons(PROXY_PORT)

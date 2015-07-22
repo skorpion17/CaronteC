@@ -27,20 +27,23 @@ void __change_sockaddr(struct sockaddr * const saddr, const in_addr_t s_addr,
  * Stampa a video l'indirizzo addr
  */
 void __print_addr(const struct sockaddr *addr) {
-	char *s = NULL;
 	struct sockaddr_in *addr_in = (struct sockaddr_in *) addr;
-	if ((s = calloc(1, INET_ADDRSTRLEN)) == NULL) {
-		/* Non è stato possibile allocare la memoria, errore fatale. */
-		perror("calloc fatal error");
-		exit(1);
+	if (addr->sa_family == AF_INET) {
+		/* Stampa a video se è IPV4, altrimenti non fa nulla. */
+		char *s = NULL;
+		if ((s = calloc(1, INET_ADDRSTRLEN)) == NULL) {
+			/* Non è stato possibile allocare la memoria, errore fatale. */
+			perror("calloc fatal error");
+			exit(1);
+		}
+		/*
+		 * Converte da decimale a stringa
+		 */
+		inet_ntop(AF_INET, &(addr_in->sin_addr), s, INET_ADDRSTRLEN);
+		printf("\t>>> Wrapped connect: connection to address (%s:%d) <<< \n", s,
+				ntohs(addr_in->sin_port));
+		free(s);
 	}
-	/*
-	 * Converte da decimale a stringa
-	 */
-	inet_ntop(AF_INET, &(addr_in->sin_addr), s, INET_ADDRSTRLEN);
-	printf("\t>>> Wrapped connect: connection to address (%s:%d) <<< \n", s,
-			ntohs(addr_in->sin_port));
-	free(s);
 }
 
 /**
@@ -59,11 +62,62 @@ struct hostent *gethostbyname(const char *name) {
  *  Risoluzione dell'host.
  *  FIXME: TODO da mandare al proxy per la risoluzione del DNS attraverso Tor.
  */
-int getaddrinfo(const char *name, const char *service,
+int getaddrinfo(const char *hostname, const char *service,
 		const struct addrinfo *hints, struct addrinfo **res) {
 	printf("\t>>> Wrapped getaddrinfo <<< \n");
+	/*
+	 * Si rigirano tutte le richieste
+	 */
+	printf("\t>>> getaddrinfo hostname:%s, service:%s <<< \n", hostname,
+			service);
 	real_getaddrinfo = dlsym(RTLD_NEXT, REAL_GETADDRINFO_NAME);
-	return real_getaddrinfo(name, service, hints, res);
+	return real_getaddrinfo(hostname, service, hints, res);
+}
+
+/**
+ * Verifica se l'hostname è un hidden service identificato dal suffisso .onion.
+ * Ritorna 0 se hostname risulta essere un hidden service -1 altrimenti.
+ *
+ * @Deprecated
+ */
+int __is_onion_hostname(const char *hostname) {
+	regex_t regex;
+	int ret_regexc = -1;
+	int retcode = -1;
+
+	/* Si compila l'espressione regolare (questa cosa potrebbe essere fatta una sola volta) */
+	if (regcomp(&regex, ".+\\.onion", REG_EXTENDED) != 0) {
+		printf("Could not compile regex\n");
+		/*
+		 * Questo è un errore fatale, e si esce dalla applicazione.
+		 */
+		exit(1);
+	}
+	/* Si esegue il match */
+	ret_regexc = regexec(&regex, hostname, 0, NULL, 0);
+	switch (ret_regexc) {
+	case 0:
+		/* Successo */
+		retcode = 0;
+		break;
+
+	case REG_NOMATCH:
+		/* Non c'è stato il match */
+		retcode = -1;
+		break;
+
+	default:
+		/* Erorri fatali non gestiti */
+		printf("regexec fatal error.\n");
+		exit(1);
+		break;
+	}
+
+	/*
+	 * Libero la memoria e ritorno il risultato del matching con l'hostname.
+	 */
+	regfree(&regex);
+	return retcode;
 }
 
 /*
@@ -104,6 +158,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 			 * se esiste la regola di redirezione al proxy server
 			 */
 			switch (ntohs(remote_port_network_byte_order)) {
+			/* HTTP e HTTPS */
 			case HTTP_PORT:
 			case HTTPS_PORT:
 				do {
@@ -116,6 +171,29 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 					__change_sockaddr((struct sockaddr *) addr,
 					PROXY_ADDR_NETWORK_BYTE_ORDER,
 					PROXY_PORT_NETWORK_BYTE_ORDER);
+
+					/* DEBUG */
+					__print_addr(addr);
+
+					printf("\t>>> Sockaddr has been changed <<< \n");
+				} while (0);
+				break;
+
+				/* DNS */
+			case DNS_PORT :
+				/*
+				 * Se stiamo facendo una risoluzione, allora bisogna redirigere la richiesta
+				 * al servizio di resolution offerto dal PROXY Server
+				 */
+				do {
+					printf("\t>>> Forward to TorDNS <<< \n");
+					/*
+					 * Viene cambiato l'indirizzo di destinazione e la porta di destinazione in modo tale che la
+					 * risoluzione DNS punti al TorDNS server anzichè al DNS Server locale.
+					 */
+					__change_sockaddr((struct sockaddr *) addr,
+					PROXY_TORDNS_ADDR_NETWORK_BYTE_ORDER,
+					PROXY_TORDNS_PORT_NETWORK_BYTE_ORDER);
 
 					/* DEBUG */
 					__print_addr(addr);
@@ -208,7 +286,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 					return -1;
 				}
 
-				printf("\t>>> Destionation host and port are "
+				printf("\t>>> Destination host and port are "
 						"sent to proxy server <<<\n");
 			}
 
