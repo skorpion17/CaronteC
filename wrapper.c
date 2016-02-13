@@ -7,6 +7,11 @@
 
 #include "wrapper.h"
 
+#include <asm-generic/errno.h>
+#include <asm-generic/socket.h>
+#include <netinet/in.h>
+#include <sys/un.h>
+
 /**
  * Cambia la destinazione e la porta della sockaddr passata come parametro.
  */
@@ -52,7 +57,7 @@ void __print_addr(const struct sockaddr *addr) {
  * @Deprecated
  */
 struct hostent *gethostbyname(const char *name) {
-	printf("\t>>> Wrapped gethostbyname <<< \n");
+	printf("\n\t>>> Wrapped gethostbyname <<< \n");
 	printf("\t>>> gethostbyname hostname:%s <<< \n", name);
 	real_gethostbyname = dlsym(RTLD_NEXT, REAL_GETHOSTBYNAME_NAME);
 	return real_gethostbyname(name);
@@ -63,11 +68,15 @@ struct hostent *gethostbyname(const char *name) {
  */
 int getaddrinfo(const char *hostname, const char *service,
 		const struct addrinfo *hints, struct addrinfo **res) {
-	printf("\t>>> Wrapped getaddrinfo <<< \n");
+	printf("\n\t>>> Wrapped getaddrinfo <<< \n");
 	printf("\t>>> getaddrinfo hostname:%s, service:%s <<< \n", hostname,
 			service);
 	real_getaddrinfo = dlsym(RTLD_NEXT, REAL_GETADDRINFO_NAME);
-	return real_getaddrinfo(hostname, service, hints, res);
+	// printf("\t>>> before real_getaddrinfo <<< \n");
+	const int ret = real_getaddrinfo(hostname, service, hints, res);
+	printf("\t>>> getaddrinfo hostname: %s, service %s returned <<< \n",
+			hostname, service);
+	return ret;
 }
 
 /**
@@ -116,20 +125,13 @@ int __is_onion_hostname(const char *hostname) {
 	return retcode;
 }
 
-/*
- * La connessione che viene aperta col proxy server è simile ad un SOCKS.
- * Infatti la nuova connect invia:
- * 		1) AF_FAM che indica la famiglia, IPV4 o IPV6
- * 		2) IP_ADDR_NTB che indica l'indirizzo di destinazione in network byte order.
- * 		3) PORT_NTB che indica la porta di destinazione in network byte order.
- *
- * 	AF_FAM sono 2 byte (sa_family_t).
- * 	IP_ADDR_NTB dipende dalla AF_FAMILY
- * 	PORT_NTB sono 2 byte.
- *
- * +--------+-------------+----------+
- * | AF_FAM | IP_ADDR_NTB | PORT_NTB |
- * +--------+-------------+----------+
+/**
+ * Ridefinizione della connect di libc. La connect è utilizzata sia per la risoluzione
+ * dei nomi di dominio (DNS) che per la connessione delle socket.
+ * Queste versione di connect permette, in base a delle porte specificate, di connettersi
+ * tramite un protocollo s-SOCKS al Web Proxy per la navigazione anonima attraverso
+ * la rete Tor. Per tutte le altre porte che non sono abilitate a dirottare il traffico sul "Web Proxy"
+ * il comportamento della connect è identico a quello della medesima funzione della libc.
  */
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 	/*
@@ -154,28 +156,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 			 * se esiste la regola di redirezione al proxy server
 			 */
 			switch (ntohs(remote_port_network_byte_order)) {
-			/* HTTP e HTTPS */
-			case HTTP_PORT:
-			case HTTPS_PORT:
-				do {
-					forward_to_proxy = TRUE;
-					printf("\t>>> Forward to proxy <<< \n");
-					/*
-					 * Viene cambiato l'indirizzo di destinazione e la porta di destinazione in modo tale che
-					 * questi puntino al proxy locale.
-					 */
-					__change_sockaddr((struct sockaddr *) addr,
-					PROXY_ADDR_NETWORK_BYTE_ORDER,
-					PROXY_PORT_NETWORK_BYTE_ORDER);
 
-					/* DEBUG */
-					__print_addr(addr);
-
-					printf("\t>>> Sockaddr has been changed <<< \n");
-				} while (0);
-				break;
-
-				/* DNS */
+			/* DNS */
 			case DNS_PORT :
 				/*
 				 * Se stiamo facendo una risoluzione, allora bisogna redirigere la richiesta
@@ -190,6 +172,36 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 					__change_sockaddr((struct sockaddr *) addr,
 					PROXY_TORDNS_ADDR_NETWORK_BYTE_ORDER,
 					PROXY_TORDNS_PORT_NETWORK_BYTE_ORDER);
+
+					/* DEBUG */
+					__print_addr(addr);
+
+					printf("\t>>> Sockaddr has been changed <<< \n");
+				} while (0);
+				break;
+
+#ifndef FORWARD_ALL
+				/* solo servizi in ascolto su porte note HTTP, HTTP_PROXY e HTTPS  */
+				case HTTP_PORT:
+				case HTTP_PORT_PROXY:
+				case HTTPS_PORT:
+#else
+				/**
+				 * Il caso default permette di gestire un qualsiasi numero di porta.
+				 * In questo modo non si è limitati soltanto alle porte dei servizi noti.
+				 */
+			default:
+#endif
+				do {
+					forward_to_proxy = TRUE;
+					printf("\t>>> Forward to Web Proxy <<< \n");
+					/*
+					 * Viene cambiato l'indirizzo di destinazione e la porta di destinazione in modo tale che
+					 * questi puntino al proxy locale.
+					 */
+					__change_sockaddr((struct sockaddr *) addr,
+					PROXY_ADDR_NETWORK_BYTE_ORDER,
+					PROXY_PORT_NETWORK_BYTE_ORDER);
 
 					/* DEBUG */
 					__print_addr(addr);
