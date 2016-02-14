@@ -2,7 +2,7 @@
  * wrapper.h
  *
  *  Created on: 16/lug/2015
- *      Author: andrea
+ *      Author: Andrea Mayer Mayer
  */
 
 #ifndef WRAPPER_H_

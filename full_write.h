@@ -2,7 +2,7 @@
  * full_write.h
  *
  *  Created on: 17/lug/2015
- *      Author: andrea
+ *      Author: Andrea Mayer
  */
 
 #ifndef FULL_WRITE_H_

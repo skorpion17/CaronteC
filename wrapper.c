@@ -2,7 +2,7 @@
  * wrapper.c
  *
  *  Created on: 16/lug/2015
- *      Author: andrea
+ *      Author: Andrea Mayer
  */
 
 #include "wrapper.h"
