@@ -10,7 +10,27 @@
 #include <asm-generic/errno.h>
 #include <asm-generic/socket.h>
 #include <netinet/in.h>
+#include <sys/time.h>
 #include <sys/un.h>
+
+/**
+ * Calcoa il timestamp.
+ */
+long long __current_timestamp() {
+	struct timeval te;
+	gettimeofday(&te, NULL);
+	/* Ottiene il calcolo in millisecondi del tempo attuale. */
+	const long long milliseconds = te.tv_sec * 1000LL + te.tv_usec / 1000;
+	return milliseconds;
+}
+
+/**
+ * Stampa sulla console il timestamp al momento dell'invocazione della funzione.
+ */
+void __print_current_timestamp() {
+	const long long milliseconds = __current_timestamp();
+	printf("\t @@@ %lld @@@ \n", milliseconds);
+}
 
 /**
  * Cambia la destinazione e la porta della sockaddr passata come parametro.
@@ -134,6 +154,7 @@ int __is_onion_hostname(const char *hostname) {
  * il comportamento della connect è identico a quello della medesima funzione della libc.
  */
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+	//__print_current_timestamp();
 	/*
 	 * A seconda del tipo di family (IPV4, IPV6)
 	 */
