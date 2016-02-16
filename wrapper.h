@@ -102,7 +102,7 @@
 /**
  * Permette di leggere un intero diverso da 0 dalla variabile di ambiente specificata
  * da varname. Se il valore letto dalla variabile d'ambiente non è impostato
- * o si è verificato un errore durante la conversione in uint32_t il si ritorna
+ * o si è verificato un errore durante la conversione in uint32_t si ritorna
  * il valore di defaut che viene passato alla funzione.
  */
 #define read_uint32_t_from_getenv(varname, default_value) ({	\
