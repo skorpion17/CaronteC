@@ -203,15 +203,15 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 
 #ifndef FORWARD_ALL
 				/* solo servizi in ascolto su porte note HTTP, HTTP_PROXY e HTTPS  */
-				case HTTP_PORT:
-				case HTTP_PORT_PROXY:
-				case HTTPS_PORT:
+			case HTTP_PORT:
+			case HTTP_PORT_PROXY:
+			case HTTPS_PORT:
 #else
 				/**
 				 * Il caso default permette di gestire un qualsiasi numero di porta.
 				 * In questo modo non si è limitati soltanto alle porte dei servizi noti.
 				 */
-			default:
+				default:
 #endif
 				do {
 					forward_to_proxy = TRUE;
@@ -329,7 +329,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 		break;
 
 	case AF_INET6:
-		/* TODO: Non ancora implementato */
+		/* Non implementato. */
 		break;
 	}
 	return -1;
