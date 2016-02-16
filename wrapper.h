@@ -46,6 +46,8 @@
 #define ENV_WEB_PROXY_ADDR "WEB_PROXY_ADDR"
 #define ENV_WEB_PROXY_PORT "WEB_PROXY_PORT"
 
+#define ENV_DEBUG  "DEBUG"
+
 /**
  * Se definita questa macro permette di catturare il traffico su tutte le porte
  * ed inviarlo al Web Proxy. Il traffico sulla porta del servizio DNS, viene valutata
@@ -88,6 +90,11 @@
 
 //#define HTTP_PORT_NETWORK_BYTE_ORDER  htons(HTTP_PORT)
 //#define HTTPS_PORT_NETWORK_BYTE_ORDER  htons(HTTPS_PORT)
+
+#define DEBUG read_uint32_t_from_getenv(ENV_DEBUG, 0)
+#define debug_printf(args...) \
+            do { if (DEBUG > 0) fprintf(stdout, args); } while (0)
+
 
 /*
  * Permette di leggere il contenuto di una variabile d'ambiente sottoforma di stringa.

@@ -65,8 +65,9 @@ void __print_addr(const struct sockaddr *addr) {
 		 * Converte da decimale a stringa
 		 */
 		inet_ntop(AF_INET, &(addr_in->sin_addr), s, INET_ADDRSTRLEN);
-		printf("\t>>> Wrapped connect: connection to address (%s:%d) <<< \n", s,
-				ntohs(addr_in->sin_port));
+		debug_printf(
+				"\t>>> Wrapped connect: connection to address (%s:%d) <<< \n",
+				s, ntohs(addr_in->sin_port));
 		free(s);
 	}
 }
@@ -77,8 +78,8 @@ void __print_addr(const struct sockaddr *addr) {
  * @Deprecated
  */
 struct hostent *gethostbyname(const char *name) {
-	printf("\n\t>>> Wrapped gethostbyname <<< \n");
-	printf("\t>>> gethostbyname hostname:%s <<< \n", name);
+	debug_printf("\n\t>>> Wrapped gethostbyname <<< \n");
+	debug_printf("\t>>> gethostbyname hostname:%s <<< \n", name);
 	real_gethostbyname = dlsym(RTLD_NEXT, REAL_GETHOSTBYNAME_NAME);
 	return real_gethostbyname(name);
 }
@@ -88,13 +89,13 @@ struct hostent *gethostbyname(const char *name) {
  */
 int getaddrinfo(const char *hostname, const char *service,
 		const struct addrinfo *hints, struct addrinfo **res) {
-	printf("\n\t>>> Wrapped getaddrinfo <<< \n");
-	printf("\t>>> getaddrinfo hostname:%s, service:%s <<< \n", hostname,
+	debug_printf("\n\t>>> Wrapped getaddrinfo <<< \n");
+	debug_printf("\t>>> getaddrinfo hostname:%s, service:%s <<< \n", hostname,
 			service);
 	real_getaddrinfo = dlsym(RTLD_NEXT, REAL_GETADDRINFO_NAME);
 	// printf("\t>>> before real_getaddrinfo <<< \n");
 	const int ret = real_getaddrinfo(hostname, service, hints, res);
-	printf("\t>>> getaddrinfo hostname: %s, service %s returned <<< \n",
+	debug_printf("\t>>> getaddrinfo hostname: %s, service %s returned <<< \n",
 			hostname, service);
 	return ret;
 }
@@ -185,7 +186,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 				 * al servizio di resolution offerto dal PROXY Server
 				 */
 				do {
-					printf("\t>>> Forward to TorDNS <<< \n");
+					debug_printf("\t>>> Forward to TorDNS <<< \n");
 					/*
 					 * Viene cambiato l'indirizzo di destinazione e la porta di destinazione in modo tale che la
 					 * risoluzione DNS punti al TorDNS server anzichè al DNS Server locale.
@@ -197,25 +198,25 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 					/* DEBUG */
 					__print_addr(addr);
 
-					printf("\t>>> Sockaddr has been changed <<< \n");
+					debug_printf("\t>>> Sockaddr has been changed <<< \n");
 				} while (0);
 				break;
 
 #ifndef FORWARD_ALL
 				/* solo servizi in ascolto su porte note HTTP, HTTP_PROXY e HTTPS  */
-			case HTTP_PORT:
-			case HTTP_PORT_PROXY:
-			case HTTPS_PORT:
+				case HTTP_PORT:
+				case HTTP_PORT_PROXY:
+				case HTTPS_PORT:
 #else
 				/**
 				 * Il caso default permette di gestire un qualsiasi numero di porta.
 				 * In questo modo non si è limitati soltanto alle porte dei servizi noti.
 				 */
-				default:
+			default:
 #endif
 				do {
 					forward_to_proxy = TRUE;
-					printf("\t>>> Forward to Web Proxy <<< \n");
+					debug_printf("\t>>> Forward to Web Proxy <<< \n");
 					/*
 					 * Viene cambiato l'indirizzo di destinazione e la porta di destinazione in modo tale che
 					 * questi puntino al proxy locale.
@@ -227,18 +228,18 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 					/* DEBUG */
 					__print_addr(addr);
 
-					printf("\t>>> Sockaddr has been changed <<< \n");
+					debug_printf("\t>>> Sockaddr has been changed <<< \n");
 				} while (0);
 				break;
 			}
 
-			printf("\t>>> resolution of CONNECT address <<< \n");
+			debug_printf("\t>>> resolution of CONNECT address <<< \n");
 			/**
 			 * Viene risolta la connect originale e viene effettuata la chiamata.
 			 */
 			real_connect = dlsym(RTLD_NEXT, REAL_CONNECT_NAME);
 
-			printf("\t>>> call to CONNECT <<< \n");
+			debug_printf("\t>>> call to CONNECT <<< \n");
 
 			/* Viene eseguita la connect */
 			int connect_return_code = -1;
@@ -278,7 +279,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 				}
 
 				/* Arrivata qui la socket è scribile */
-				printf("\t>>> Socket is writable <<< \n");
+				debug_printf("\t>>> Socket is writable <<< \n");
 
 				/*
 				 * La connessione che viene aperta col proxy server è simile ad un SOCKS.
@@ -315,11 +316,11 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 					return -1;
 				}
 
-				printf("\t>>> Destination host and port are "
+				debug_printf("\t>>> Destination host and port are "
 						"sent to proxy server <<<\n");
 			}
 
-			printf("\t>>> CONNECT is done <<< \n");
+			debug_printf("\t>>> CONNECT is done <<< \n");
 			/*
 			 * Se siamo arrivati qui e abbiamo scritto con successo <host_remoto,porta_remota> allora ritorniamo con la connect su 0
 			 * che indica successo.
